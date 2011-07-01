@@ -42,10 +42,14 @@ mov     $msg_l, %cx
 mov     $1,     %dx   
 call    print
 
+mov     $0x0200,%dx
+mov     $0x2,   %ah
+int     $0x10
+
 call    search_loader
 mov     $msg,   %ax
 mov     $msg_l, %cx
-mov     $0x0401,%dx   
+mov     $0x0301,%dx   
 call    print
 cli
 hlt
@@ -72,6 +76,10 @@ read_sec:
 push    %ebp
 mov     %esp,   %ebp
 sub     $2,     %esp
+
+mov     $0x0e52,%al
+int     $0x10
+
 mov     %cl,    -2(%ebp)
 push    %bx
 mov     (BPB_SecPerTrk),%bl
@@ -103,6 +111,9 @@ BaseOfLoader        =0x9000
 OffsetOfLoader      =0x0100
 RootDirSectors      =((RootEntCnt*32) + (BytesPerSec-1))/BytesPerSec
 FirstSecOfRootDir   =RsvdSecCnt + NumFATs*FATSz16
+xor     %ah,    %ah
+xor     %dl,    %dl
+int     $0x13
 push    %ebp
 push    %es
 mov     %esp,   %ebp
@@ -112,13 +123,14 @@ movw    $FirstSecOfRootDir,-4(%ebp)
 
 root_search:
 mov     (%ebp), %es
-mov     $load,  %ax
-mov     $load_l,%cx
-mov     $0x01,  %dl
-mov     -2(%ebp),%dh
-call    print
 cmpw    $0,     -2(%ebp)
 jz      not_found
+
+mov     -2(%ebp),%ax
+add     $0x030,  %al
+mov     $0x0e,  %ah
+int     $0x10
+
 decw    -2(%ebp)
 mov     $BaseOfLoader,%ax
 mov     %ax,    %es
@@ -132,7 +144,11 @@ mov     $0,     %dx
 
 sec_search:
 cmpw    $BytesPerSec,%dx
-jl      root_search
+jnb      root_search
+
+mov     $0x0e2e,%ax
+int     $0x10
+
 mov     $OffsetOfLoader,%ax
 add     %dx,    %ax
 mov     %ax,    %di
@@ -141,7 +157,7 @@ cld
 mov     $fname, %si
 mov     $fname_l,%cx
 repz    cmpsb
-jz      found
+jnz     found
 addw    $0x20,  %dx
 jmp     sec_search
 
