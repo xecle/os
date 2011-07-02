@@ -21,7 +21,8 @@ BPB_TotSec16:       .word   2880
 BPB_Media:          .byte   0xf0
     FATSz16         =       9
 BPB_FATSz16:        .word   FATSz16
-BPB_SecPerTrk:      .word   18
+    SecPerTrk       =       18
+BPB_SecPerTrk:      .word   SecPerTrk
 BPB_NumHeads:       .word   2
 BPB_HiddSeci:       .long   0
 BPB_TotSec32:       .long   0
@@ -41,10 +42,6 @@ mov     $msg,   %ax
 mov     $msg_l, %cx
 mov     $1,     %dx   
 call    print
-
-mov     $0x0200,%dx
-mov     $0x2,   %ah
-int     $0x10
 
 call    search_loader
 mov     $msg,   %ax
@@ -77,12 +74,9 @@ push    %ebp
 mov     %esp,   %ebp
 sub     $2,     %esp
 
-mov     $0x0e52,%al
-int     $0x10
-
 mov     %cl,    -2(%ebp)
 push    %bx
-mov     (BPB_SecPerTrk),%bl
+mov     $SecPerTrk,%bl
 div     %bl
 inc     %ah
 mov     %ah,    %cl
@@ -91,12 +85,18 @@ shr     $1,     %al
 mov     %al,    %ch
 and     $1,     %dh
 pop     %bx
-mov     (BS_DrvNum),%dl
+
 try_read:
+mov     (BS_DrvNum),%dl
 mov     $2,     %ah
 mov     -2(%ebp),%al
 int     $0x13
-jc      try_read
+jnc     read_ok
+xor     %ah,    %ah
+xor     %dl,    %dl
+int     $0x13
+jmp     try_read
+read_ok:
 add     $2,     %esp
 pop     %ebp
 ret
@@ -121,14 +121,17 @@ sub     $4,     %esp
 movw    $RootDirSectors,-2(%ebp)
 movw    $FirstSecOfRootDir,-4(%ebp)
 
+mov     $load,  %ax
+mov     $load_l, %cx
+mov     $0x0101,%dx
+call    print
+
 root_search:
 mov     (%ebp), %es
 cmpw    $0,     -2(%ebp)
 jz      not_found
 
-mov     -2(%ebp),%ax
-add     $0x030,  %al
-mov     $0x0e,  %ah
+mov     $0x0e2e,%ax
 int     $0x10
 
 decw    -2(%ebp)
@@ -145,10 +148,6 @@ mov     $0,     %dx
 sec_search:
 cmpw    $BytesPerSec,%dx
 jnb      root_search
-
-mov     $0x0e2e,%ax
-int     $0x10
-
 mov     $OffsetOfLoader,%ax
 add     %dx,    %ax
 mov     %ax,    %di
@@ -188,7 +187,7 @@ ret
 # Message text
 msg:    .ascii  "Welcome to MyOS!"
 msg_l   =.-msg
-load:   .ascii  "Loading..."
+load:   .ascii  "Loading"
 load_l  =.-load
 lok:   .ascii  "Loading OK!"
 lok_l  =.-lok
