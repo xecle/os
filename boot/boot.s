@@ -104,13 +104,14 @@ ret
 
 # Function for Search File
 # Search file start sector which file name is $fname
-# Return with the file fisrt clus number in %bx
+# Return with the file fisrt clus number in %ax
 search_loader:
 BaseOfStack         =0x7c00
 BaseOfLoader        =0x9000
 OffsetOfLoader      =0x0100
 RootDirSectors      =((RootEntCnt*32) + (BytesPerSec-1))/BytesPerSec
 FirstSecOfRootDir   =RsvdSecCnt + NumFATs*FATSz16
+DeltaCluster        =RootDirSectors + FirstSecOfRootDir - 2
 xor     %ah,    %ah
 xor     %dl,    %dl
 int     $0x13
@@ -181,6 +182,43 @@ search_end:
 mov     %ebp,     %esp
 pop     %es
 pop     %ebp
+ret
+
+
+# Function for get the sector number of next cluster
+# get the FAT entry of sector %ax
+# return the next sector number in %ax
+getFatEntry:
+push    %es
+push    %bx
+push    %ax
+mov     $BaseOfLoader,%ax
+sub     $0x100, %ax
+mov     %ax,    %es
+pop     %ax
+mov     $3,     %bx
+mul     %bx
+mov     $2,     %bx
+div     %bx
+push    %bx
+xor     %dx,    %dx
+mov     (BPB_BytesPerSec),%bx
+div     %bx
+push    %dx
+xor     %bx,    %bx
+add     $RsvdSecCnt,%ax
+mov     $2,     %cl
+call    read_sec
+pop     %bx
+mov     %es:(%bx),%ax
+pop     %dx
+cmp     $0,     %dl
+jz      lower
+shr     $4,     %ax
+lower:
+and     $0x0fff,%ax
+pop     %bx
+pop     %es
 ret
 
 
