@@ -33,8 +33,18 @@ BS_VolID:           .long   0
 BS_VolLab:          .ascii  "MyOS-xecle "
 BS_FilSysType:      .ascii  "FAT12   "
 
+# loader memory 
+BaseOfStack         =0x7c00
+BaseOfLoader        =0x9000
+OffsetOfLoader      =0x0100
+
 
 main:
+mov     $0x0600,%ax
+mov     $0x0754,%bx
+mov     $0x0000,%cx
+mov     $0x194f,%dx
+int     $0x10
 mov     %cs,    %ax
 mov     %ax,    %ds
 mov     %ax,    %es
@@ -48,6 +58,9 @@ mov     $msg,   %ax
 mov     $msg_l, %cx
 mov     $0x0301,%dx   
 call    print
+
+jmp     $BaseOfLoader,$OffsetOfLoader
+
 cli
 hlt
 
@@ -92,7 +105,7 @@ mov     $2,     %ah
 mov     -2(%ebp),%al
 int     $0x13
 jnc     read_ok
-xor     %ah,    %ah
+xor     %ah,    %ah     # read error, reset and read again 
 xor     %dl,    %dl
 int     $0x13
 jmp     try_read
@@ -106,11 +119,8 @@ ret
 # Search file start sector which file name is $fname
 # Return with the file fisrt clus number in %ax
 search_loader:
-BaseOfStack         =0x7c00
-BaseOfLoader        =0x9000
-OffsetOfLoader      =0x0100
-RootDirSectors      =((RootEntCnt*32) + (BytesPerSec-1))/BytesPerSec
-FirstSecOfRootDir   =RsvdSecCnt + NumFATs*FATSz16
+RootDirSectors      =((RootEntCnt*32) + (BytesPerSec-1))/BytesPerSec     # 14
+FirstSecOfRootDir   =RsvdSecCnt + NumFATs*FATSz16     # 19
 DeltaCluster        =RootDirSectors + FirstSecOfRootDir - 2
 xor     %ah,    %ah
 xor     %dl,    %dl
@@ -162,7 +172,7 @@ addw    $0x20,  %dx
 jmp     sec_search
 
 not_found:
-mov     (%ebp), %es
+mov     (%ebp),    %es
 mov     $lerr,  %ax
 mov     $lerr_l,%cx
 mov     $0x0201,%dx
@@ -170,14 +180,10 @@ call    print
 jmp     search_end
 
 found:
-mov     (%ebp), %es
-push    %si
-mov     $lok,  %ax
-mov     $lok_l,%cx
-mov     $0x0201,%dx
-call    print
-pop     %si
-mov     0x1a(%si),%bx
+and     $0xffe0,%di
+add     $0x1a,  %di
+mov     %es:(%di),%ax
+call    load_Loader
 search_end:
 mov     %ebp,     %esp
 pop     %es
@@ -185,7 +191,7 @@ pop     %ebp
 ret
 
 
-# Function for get the sector number of next cluster
+# Function for get the cluster number of next cluster
 # get the FAT entry of sector %ax
 # return the next sector number in %ax
 getFatEntry:
@@ -200,9 +206,9 @@ mov     $3,     %bx
 mul     %bx
 mov     $2,     %bx
 div     %bx
-push    %bx
+push    %dx
 xor     %dx,    %dx
-mov     (BPB_BytesPerSec),%bx
+mov     $BytesPerSec,%bx
 div     %bx
 push    %dx
 xor     %bx,    %bx
@@ -210,6 +216,7 @@ add     $RsvdSecCnt,%ax
 mov     $2,     %cl
 call    read_sec
 pop     %bx
+add     %dx,    %bx
 mov     %es:(%bx),%ax
 pop     %dx
 cmp     $0,     %dl
@@ -222,14 +229,54 @@ pop     %es
 ret
 
 
+
+# load loader.bin to memory
+load_Loader:
+push    %ax
+push    %ax
+push    %bx
+mov     $0x0e2e,%ax
+mov     $0x0f,  %bl
+int     $0x10
+pop     %bx
+pop     %ax
+
+mov     $0x01,  %cl
+add     $DeltaCluster,%ax
+call    read_sec
+pop     %ax
+call    getFatEntry
+cmp     $0xFFF,%ax
+jz      loader_ok
+push    %ax
+add     $BytesPerSec,%bx
+jmp     load_Loader
+loader_ok:
+mov     (%ebp), %es
+mov     $lok,   %ax
+mov     $lok_l, %cx
+mov     $0x0201,%dx
+call    print
+ret
+
+
+# print a ascii char in %al 
+dis:
+#push    %bx
+#mov     $0x0e2e,%ax
+#mov     $0x0f,  %bl
+#int     $0x10
+#pop     %bx
+
+
 # Message text
-msg:    .ascii  "Welcome to MyOS!"
+msg:    .ascii  "Welcome !"
 msg_l   =.-msg
 load:   .ascii  "Loading"
 load_l  =.-load
-lok:   .ascii  "Loading OK!"
+lok:   .ascii  "Load OK!"
 lok_l  =.-lok
-lerr:   .ascii  "Loading faled!"
+lerr:   .ascii  "Faled!"
 lerr_l  =.-lerr
 fname:  .asciz  "LOADER  BIN"
 fname_l =.-fname
