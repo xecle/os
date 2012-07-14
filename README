@@ -1,0 +1,14 @@
+#-----------------------------------------------#
+#                                               #
+#   Project:    Write OS from zero              #
+#   Author:     xecle<xecle@hotmail.com>        #
+#                                               #
+#-----------------------------------------------#
+
+Start:
+  sudo dpkg -i tool/bochsdbg.deb
+  make
+  bochsdbg -q 
+
+2012-07-14
+Add package bochs-dbg and fix BIOS config path in bochsrc
