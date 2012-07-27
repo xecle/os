@@ -54,11 +54,6 @@ mov     $1,     %dx
 call    print
 
 call    search_loader
-mov     $msg,   %ax
-mov     $msg_l, %cx
-mov     $0x0301,%dx   
-call    print
-
 jmp     $BaseOfLoader,$OffsetOfLoader
 
 cli
