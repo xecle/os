@@ -12,7 +12,7 @@ jmp _start
 
 GDT:            Descriptor  0,      0,                  0
 DESC_CODE32:    Descriptor  0,      (SegCode32Len - 1), 0x4098
-DESC_VODEO:     Descriptor  0xb800, 0xffff,             0x92
+DESC_VODEO:     Descriptor  0xb8000, 0xffff,             0x92
 
 .set    GdtLen, (.-GDT)
 GdtPtr: .word   (GdtLen-1)
@@ -31,7 +31,7 @@ mov     $0x100, %sp
 xor     %eax,   %eax
 mov     %cs,    %ax
 shl     $0x4,   %eax
-addl    $(DESC_CODE32),%eax
+addl    $(SEG_CODE32),%eax
 movw    %ax,    (DESC_CODE32+2)
 shr     $0x10,  %eax
 movb    %al,    (DESC_CODE32+4)
@@ -56,14 +56,14 @@ orl     $0x1,   %eax
 movl    %eax,   %cr0
 
 ljmpl   $SelectorCode32,$0x0
-
 SEG_CODE32:
 .code32
 mov     $(SelectorVideo),%ax
 mov     %ax,    %gs
-movl    ((80*10+0)*2),%edi
+nop
+movl    $((80*10+0)*2),%edi
 movb    $0xc,   %ah
 movb    $'P',   %al
 mov     %ax,    %gs:(%edi)
-hlt
+jmp .
 .set SegCode32Len, .-SEG_CODE32
