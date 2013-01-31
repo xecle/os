@@ -15,14 +15,14 @@ DESC_CODE32:    Descriptor  0,      (SegCode32Len - 1), 0x4098
 DESC_VODEO:     Descriptor  0xb8000, 0xffff,             0x92
 
 .set    GdtLen, (.-GDT)
-GdtPtr: .word   (GdtLen-1)
+GdtPtr: .word   (GdtLen-1)      // data struct for ldgt : {2byte length; 4byte address}
         .long   0
 
-.set    SelectorCode32, (DESC_CODE32 - GDT)
-.set    SelectorVideo,  (DESC_VODEO - GDT)
+.set    SelectorCode32, (DESC_CODE32 - GDT)     // code GDT index
+.set    SelectorVideo,  (DESC_VODEO - GDT)      // video GDT index
 
 _start:
-mov     %cs,    %ax
+mov     %cs,    %ax     // set ds, es, ss stack reg as cs
 mov     %ax,    %ds
 mov     %ax,    %es
 mov     %ax,    %ss
@@ -30,18 +30,18 @@ mov     %ax,    %ss
 mov     $0x100, %sp
 xor     %eax,   %eax
 mov     %cs,    %ax
-shl     $0x4,   %eax
-addl    $(SEG_CODE32),%eax
-movw    %ax,    (DESC_CODE32+2)
+shl     $0x4,   %eax            // get base segment offset for code
+addl    $(SEG_CODE32),%eax      // get segment offset for code32
+movw    %ax,    (DESC_CODE32+2) // set low 16 bit base in code GDT
 shr     $0x10,  %eax
-movb    %al,    (DESC_CODE32+4)
-movb    %ah,    (DESC_CODE32+7)
+movb    %al,    (DESC_CODE32+4) // set 16~24 bit base in code GDT
+movb    %ah,    (DESC_CODE32+7) // set 24~32 bit base in code GDT
 
 xor     %eax,   %eax
 mov     %ds,    %ax
 shl     $0x4,   %eax
 add     $(GDT), %eax
-movl    %eax,   (GdtPtr+2)
+movl    %eax,   (GdtPtr+2)      // set GDT table address in GdtPr
 lgdtw   GdtPtr
 
 
@@ -61,9 +61,9 @@ SEG_CODE32:
 mov     $(SelectorVideo),%ax
 mov     %ax,    %gs
 nop
-movl    $((80*10+0)*2),%edi
-movb    $0xc,   %ah
-movb    $'P',   %al
-mov     %ax,    %gs:(%edi)
+movl    $((80*10+0)*2),%edi     // line 10, row 0,
+movb    $0xc,   %ah             // color
+movb    $'P',   %al             // characters
+mov     %ax,    %gs:(%edi)      // set color and characters in video display memory
 jmp .
 .set SegCode32Len, .-SEG_CODE32
